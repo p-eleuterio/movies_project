@@ -2,8 +2,8 @@
 env/
 
 # Data
-data/raw/
-data/processed/
+*.csv
+*.parquet
 
 # Notebooks
 .ipynb_checkpoints/
