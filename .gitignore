@@ -1,6 +1,3 @@
-# Conda env
-env/
-
 # Data
 *.csv
 *.parquet
