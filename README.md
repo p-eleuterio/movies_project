@@ -1,65 +1,95 @@
-# Kueski Data Scientist Take-Home
+# Kueski Data Scientist Challenge
 
-Starter workspace for the movie-ratings binary classification challenge.
+This project builds a **binary classifier** to predict whether a MovieLens user will give a movie a “high” rating (≥4).  
+The core emphasis is on **feature engineering**, **temporal robustness**, and the **integration of heterogeneous data sources**.  
+Rather than tuning a single model aggressively, the goal is to demonstrate a complete ML workflow:
 
-## Project structure
-- `environment.yml` — conda spec for reproducible env.
-- `data/raw/` — place the six Kaggle CSVs (`genome_scores.csv`, `genome_tags.csv`, `link.csv`, `movie.csv`, `rating.csv`, `tag.csv`).
-- `data/processed/` — any cached/intermediate artifacts you create.
-- `notebooks/` — exploratory analysis and modeling notebooks.
-- `src/` — helper functions (feature engineering, utils, etc.).
+- structuring and understanding the data,  
+- designing leakage-safe behavioral and temporal features,  
+- injecting external metadata,  
+- and evaluating the incremental predictive value of each feature family.
 
-## Setup
-1) Create the conda env **inside this repo**:
-```bash
-conda env create -p ./env -f environment.yml
+The final solution integrates **user behavior**, **movie-level dynamics**, **semantic representations** (Genome), and **external metadata** (TMDB), leading to a robust hybrid model.
+
+---
+
+## Quick start
+
+1. Create and activate the conda environment:
+
+   ```bash
+   conda env create -p ./env -f environment.yml
+   conda activate ./env
+   python -m ipykernel install --user --name kueski-ds --display-name "kueski-ds"
+   ```
+
+2. Download the six MovieLens 20M CSVs from Kaggle and place them in `data/raw/`.  
+   All intermediate artifacts (temporal datasets, PCA embeddings, TMDB merges) are stored in `data/processed/`.
+
+---
+
+## Notebooks (pipeline overview)
+
+### `00_etl_eda.ipynb`
+End-to-end EDA for MovieLens 20M.  
+Defines the binary target (≥4), analyzes sparsity, profiles users and movies, and explores Genome Tag distributions.
+
+### `01_f_e_baseline.ipynb`
+Baseline feature engineering: user/movie statistics, mean ratings, like rates, counts.  
+Establishes the first minimal feature set.
+
+### `02_baseline_model.ipynb`
+Trains the initial classifier using a **time-based split** to avoid future leakage.  
+Evaluates ROC-AUC, PR-AUC, and F1 to set baseline metrics.
+
+### `03_f_e_genome.ipynb`
+Enrichment with **Genome Tags** through PCA (50 components).  
+Captures latent semantic dimensions beyond genres.
+
+### `04_f_e_temporal.ipynb`
+Builds **temporal features** that respect chronological order:  
+decay-weighted means, last-N windows, recent like activity, and temporal movie popularity trends.
+
+### `05_f_e_tmdb.ipynb`
+Integrates **TMDB metadata** (budget, revenue, adult flag) via IMDb ID matching.  
+Includes cleaning, log-transformations, and missingness indicators.
+
+### `06_mvp_model.ipynb`
+Combines all engineered features (baseline + temporal + Genome PCA + TMDB).  
+Trains the MVP model and compares it against the baseline using ROC curves, PR curves, and final metrics.
+
+---
+
+## Project layout
+
+- `environment.yml` — reproducible environment spec  
+- `data/raw/` — original MovieLens CSVs from Kaggle  
+- `data/processed/` — engineered and cached datasets  
+- `notebooks/` — full modeling pipeline  
+- `src/` — helper utilities and feature engineering functions  
+- `data_dictionary.md` — documentation of derived variables  
+
+---
+
+## Modeling target
+
+A high rating is defined as:
+
+```python
+is_high_rating = 1 if rating >= 4 else 0
 ```
-2) Activate it:
-```bash
-conda activate ./env
-```
-3) Register the kernel for Jupyter (once):
-```bash
-python -m ipykernel install --user --name kueski-ds --display-name "kueski-ds"
-```
 
-## Data download (manual)
-Network access is disabled here, so please download the files from the Kaggle dataset manually:
-1) Go to the public MovieLens Kaggle dataset page.
-2) Download `genome_scores.csv`, `genome_tags.csv`, `link.csv`, `movie.csv`, `rating.csv`, `tag.csv`.
-3) Save them into `data/raw/`.
+All features are designed to be safe for **online inference**, avoiding any future information relative to the rating timestamp.
 
-## Data dictionary (MovieLens 20M)
-- `rating.csv` (`ratings.csv` on Kaggle)  
-  - `userId`: anonymized user identifier (only users with ≥20 ratings kept). citeturn0search14  
-  - `movieId`: internal MovieLens movie key; joins to other files. citeturn0search13  
-  - `rating`: explicit 5-star score in 0.5 increments, range 0.5–5.0. citeturn0search13  
-  - `timestamp`: Unix time in seconds since 1970-01-01 UTC, when the rating was made. citeturn0search7
-- `tag.csv` (`tags.csv` on Kaggle)  
-  - `userId`: same user key as ratings. citeturn0search13  
-  - `movieId`: movie key. citeturn0search13  
-  - `tag`: free‑text user-supplied tag. citeturn0search13  
-  - `timestamp`: Unix time when the tag was applied. citeturn0search13
-- `movie.csv` (`movies.csv` on Kaggle)  
-  - `movieId`: movie key. citeturn0search0  
-  - `title`: movie title, usually with release year in parentheses. citeturn0search0  
-  - `genres`: pipe-delimited list of genres from a fixed set (Action, Adventure, …, Western, `(no genres listed)`). citeturn0search0
-- `link.csv` (`links.csv` on Kaggle)  
-  - `movieId`: movie key. citeturn0search0  
-  - `imdbId`: numeric IMDb identifier for the same movie (no leading zeros). citeturn0search3  
-  - `tmdbId`: numeric TMDb identifier for the same movie. citeturn0search3
-- `genome_scores.csv`  
-  - `movieId`: movie key. citeturn0search1  
-  - `tagId`: ID of a genome tag. citeturn0search1  
-  - `relevance`: real value in [0,1] measuring how strongly the tag describes the movie. citeturn0search1
-- `genome_tags.csv`  
-  - `tagId`: tag identifier used in `genome_scores`. citeturn0search1  
-  - `tag`: normalized tag string (vocabulary of ~1,100 tags). citeturn0search1
+---
 
-## Getting started
-- Launch Jupyter Lab: `jupyter lab`
-- Open `notebooks/starter.ipynb` as a template for your EDA and modeling.
+## Final remarks
 
-## Notes
-- The target label is `is_high_rating = 1 if rating >= 4 else 0`.
-- Focus on feature engineering that can work for online inference (avoid label leakage from future interactions).
+Across experiments, the most impactful improvements came from:
+
+- **Temporal user behavior** — decay-weighted like rates and recent activity trends were the strongest predictors.
+- **Temporal movie dynamics** — recent like rates and short-term trends added meaningful predictive power.
+- **Genome PCA embeddings** — captured nuanced semantic structure that genres alone cannot provide.
+- **External metadata (TMDB)** — budget, revenue, and adult flags provided small but consistent gains when available.
+
+Overall, combining **internal behavioral signals**, **temporal modeling**, **semantic content**, and **external data sources** yields a significantly stronger model than any single family of features alone.
