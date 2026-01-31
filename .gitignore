@@ -2,6 +2,17 @@
 *.csv
 *.parquet
 
+# Conda env
+env/
+
+# Data
+data/raw/
+data/processed/
+
+# Raw exports
+*.csv
+*.parquet
+
 # Notebooks
 .ipynb_checkpoints/
 
